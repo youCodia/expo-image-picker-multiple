@@ -1,25 +1,25 @@
-import React from 'react';
+import React from "react";
 import {
   StyleSheet,
   View,
   FlatList,
   Dimensions,
   ActivityIndicator,
-} from 'react-native'
-import * as ScreenOrientation from 'expo-screen-orientation';
-import * as MediaLibrary from 'expo-media-library'
-import * as Permissions from 'expo-permissions'
-import ImageTile from './ImageTile'
+} from "react-native";
+import * as ScreenOrientation from "expo-screen-orientation";
+import * as MediaLibrary from "expo-media-library";
+import * as Permissions from "expo-permissions";
+import ImageTile from "./ImageTile";
 
-const {width} = Dimensions.get('window');
+const { width } = Dimensions.get("window");
 
 export default class ImageBrowser extends React.Component {
   static defaultProps = {
     loadCompleteMetadata: true,
     loadCount: 50,
     emptyStayComponent: null,
-    preloaderComponent: <ActivityIndicator size='large'/>
-  }
+    preloaderComponent: <ActivityIndicator size="large" />,
+  };
 
   state = {
     hasCameraPermission: null,
@@ -29,39 +29,40 @@ export default class ImageBrowser extends React.Component {
     selected: [],
     isEmpty: false,
     after: null,
-    hasNextPage: true
-  }
+    hasNextPage: true,
+  };
 
   async componentDidMount() {
     await this.getPermissionsAsync();
     ScreenOrientation.addOrientationChangeListener(this.onOrientationChange);
     const orientation = await ScreenOrientation.getOrientationAsync();
     const numColumns = this.getNumColumns(orientation);
-    this.setState({numColumns});
+    this.setState({ numColumns });
     this.getPhotos();
   }
 
   getPermissionsAsync = async () => {
-    const {status: camera} = await Permissions.askAsync(Permissions.CAMERA);
-    const {status: cameraRoll} = await Permissions.askAsync(Permissions.CAMERA_ROLL);
+    const { status: camera } = await Permissions.askAsync(Permissions.CAMERA);
+    const { status: cameraRoll } = await MediaLibrary.requestPermissionsAsync();
     this.setState({
-      hasCameraPermission: camera === 'granted',
-      hasCameraRollPermission: cameraRoll === 'granted'
+      hasCameraPermission: camera === "granted",
+      hasCameraRollPermission: cameraRoll === "granted",
     });
-  }
+  };
 
-  onOrientationChange = ({orientationInfo}) => {
+  onOrientationChange = ({ orientationInfo }) => {
     ScreenOrientation.removeOrientationChangeListeners();
     ScreenOrientation.addOrientationChangeListener(this.onOrientationChange);
     const numColumns = this.getNumColumns(orientationInfo.orientation);
-    this.setState({numColumns});
-  }
+    this.setState({ numColumns });
+  };
 
-  getNumColumns = orientation => {
-    const {PORTRAIT_UP, PORTRAIT_DOWN} = ScreenOrientation.Orientation;
-    const isPortrait = orientation === PORTRAIT_UP || orientation === PORTRAIT_DOWN;
+  getNumColumns = (orientation) => {
+    const { PORTRAIT_UP, PORTRAIT_DOWN } = ScreenOrientation.Orientation;
+    const isPortrait =
+      orientation === PORTRAIT_UP || orientation === PORTRAIT_DOWN;
     return isPortrait ? 4 : 7;
-  }
+  };
 
   selectImage = (index) => {
     let newSelected = Array.from(this.state.selected);
@@ -72,24 +73,22 @@ export default class ImageBrowser extends React.Component {
       newSelected.splice(deleteIndex, 1);
     }
     if (newSelected.length > this.props.max) return;
-    if (!newSelected) newSelected = []; 
-    this.setState({selected: newSelected}, () =>{
+    if (!newSelected) newSelected = [];
+    this.setState({ selected: newSelected }, () => {
       this.props.onChange(newSelected.length, () => this.prepareCallback());
     });
-  }
+  };
 
   getPhotos = () => {
     const params = {
       first: this.props.loadCount,
       assetType: MediaLibrary.MediaType.photo,
-      sortBy: [MediaLibrary.SortBy.creationTime]
+      sortBy: [MediaLibrary.SortBy.creationTime],
     };
     if (this.state.after) params.after = this.state.after;
     if (!this.state.hasNextPage) return;
-    MediaLibrary
-      .getAssetsAsync(params)
-      .then(this.processPhotos);
-  }
+    MediaLibrary.getAssetsAsync(params).then(this.processPhotos);
+  };
 
   processPhotos = (data) => {
     if (data.totalCount) {
@@ -98,31 +97,33 @@ export default class ImageBrowser extends React.Component {
       this.setState({
         photos: [...this.state.photos, ...uris],
         after: data.endCursor,
-        hasNextPage: data.hasNextPage
+        hasNextPage: data.hasNextPage,
       });
     } else {
-      this.setState({isEmpty: true});
+      this.setState({ isEmpty: true });
     }
-  }
+  };
 
   getItemLayout = (data, index) => {
     const length = width / 4;
-    return {length, offset: length * index, index};
-  }
+    return { length, offset: length * index, index };
+  };
 
   prepareCallback() {
     const { loadCompleteMetadata } = this.props;
     const { selected, photos } = this.state;
-    const selectedPhotos = selected.map(i => photos[i]);
-    if (!loadCompleteMetadata){
+    const selectedPhotos = selected.map((i) => photos[i]);
+    if (!loadCompleteMetadata) {
       this.props.callback(Promise.all(selectedPhotos));
     } else {
-      const assetsInfo = Promise.all(selectedPhotos.map(i => MediaLibrary.getAssetInfoAsync(i)));
+      const assetsInfo = Promise.all(
+        selectedPhotos.map((i) => MediaLibrary.getAssetInfoAsync(i))
+      );
       this.props.callback(assetsInfo);
     }
   }
 
-  renderImageTile = ({item, index}) => {
+  renderImageTile = ({ item, index }) => {
     const selected = this.state.selected.indexOf(index) !== -1;
     const selectedItemNumber = this.state.selected.indexOf(index) + 1;
     return (
@@ -135,7 +136,7 @@ export default class ImageBrowser extends React.Component {
         renderSelectedComponent={this.props.renderSelectedComponent}
       />
     );
-  }
+  };
 
   renderPreloader = () => this.props.preloaderComponent;
 
@@ -151,7 +152,9 @@ export default class ImageBrowser extends React.Component {
         keyExtractor={(_, index) => index}
         onEndReached={() => this.getPhotos()}
         onEndReachedThreshold={0.5}
-        ListEmptyComponent={this.state.isEmpty ? this.renderEmptyStay() : this.renderPreloader()}
+        ListEmptyComponent={
+          this.state.isEmpty ? this.renderEmptyStay() : this.renderPreloader()
+        }
         initialNumToRender={24}
         getItemLayout={this.getItemLayout}
       />
@@ -159,14 +162,11 @@ export default class ImageBrowser extends React.Component {
   }
 
   render() {
-    const {hasCameraPermission} = this.state;
-    if (!hasCameraPermission) return this.props.noCameraPermissionComponent || null;
+    const { hasCameraPermission } = this.state;
+    if (!hasCameraPermission)
+      return this.props.noCameraPermissionComponent || null;
 
-    return (
-      <View style={styles.container}>
-        {this.renderImages()}
-      </View>
-    );
+    return <View style={styles.container}>{this.renderImages()}</View>;
   }
 }
 
